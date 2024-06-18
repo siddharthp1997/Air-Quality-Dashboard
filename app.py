@@ -1,191 +1,95 @@
 import os
-from dotenv import load_dotenv
-import requests
-import pandas as pd
-from datetime import datetime
-from time import sleep
+import streamlit as st
 from pymongo import MongoClient
-import pytz  # Import pytz library for timezone handling
+import pandas as pd
+import plotly.express as px
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
-# AirVisual API key
-API_KEY = os.getenv('API_KEY')
-
 # MongoDB connection settings
+ATLAS_URI = os.getenv('ATLAS_URI')
 MONGO_DB = str(os.getenv('MONGO_DB'))
 MONGO_COLLECTION = str(os.getenv('MONGO_COLLECTION'))
-ATLAS_URI = os.getenv('ATLAS_URI')
 
-# List of major cities in the USA
-cities = [
-    {'city': 'Los Angeles', 'state': 'California'},
-    {'city': 'New York City', 'state': 'New York'},
-    {'city': 'Chicago', 'state': 'Illinois'},
-    {'city': 'Houston', 'state': 'Texas'},
-    {'city': 'Phoenix', 'state': 'Arizona'},
-    {'city': 'Philadelphia', 'state': 'Pennsylvania'},
-    {'city': 'San Antonio', 'state': 'Texas'},
-    {'city': 'San Diego', 'state': 'California'},
-    {'city': 'Dallas', 'state': 'Texas'},
-    {'city': 'San Jose', 'state': 'California'},
-    {'city': 'Austin', 'state': 'Texas'},
-    {'city': 'Jacksonville', 'state': 'Florida'},
-    {'city': 'San Francisco', 'state': 'California'},
-    {'city': 'Indianapolis', 'state': 'Indiana'},
-    {'city': 'Columbus', 'state': 'Ohio'},
-    {'city': 'Fort Worth', 'state': 'Texas'},
-    {'city': 'Charlotte', 'state': 'North Carolina'},
-    {'city': 'Seattle', 'state': 'Washington'},
-    {'city': 'Denver', 'state': 'Colorado'},
-    {'city': 'Boston', 'state': 'Massachusetts'},
-    {'city': 'El Paso', 'state': 'Texas'},
-    {'city': 'Nashville', 'state': 'Tennessee'},
-    {'city': 'Detroit', 'state': 'Michigan'},
-    {'city': 'Oklahoma City', 'state': 'Oklahoma'},
-    {'city': 'Portland', 'state': 'Oregon'},
-    {'city': 'Las Vegas', 'state': 'Nevada'},
-    {'city': 'Memphis', 'state': 'Tennessee'},
-    {'city': 'Louisville', 'state': 'Kentucky'},
-    {'city': 'Baltimore', 'state': 'Maryland'},
-]
+# Connect to MongoDB
+client = MongoClient(ATLAS_URI)
+db = client[MONGO_DB]
+collection = db[MONGO_COLLECTION]
 
-# AirVisual API endpoint
-API_ENDPOINT = "http://api.airvisual.com/v2/city"
+# Fetch data from MongoDB
+data = list(collection.find())
 
-# Function to fetch air quality data for a single city
-def fetch_air_quality_data(city_info):
-    city = city_info['city']
-    state = city_info['state']
-    url = f"{API_ENDPOINT}?city={city}&state={state}&country=USA&key={API_KEY}"
-    
-    try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raise error for bad response status
-        
-        result = response.json()
-        data = result.get('data')
-        
-        if data:
-            aqi_us = data['current']['pollution'].get('aqius', None)
-            main_pollutant_us = data['current']['pollution'].get('mainus', None)
-            aqi_cn = data['current']['pollution'].get('aqicn', None)
-            main_pollutant_cn = data['current']['pollution'].get('maincn', None)
-            temperature = data['current']['weather'].get('tp', None)
-            pressure = data['current']['weather'].get('pr', None)
-            humidity = data['current']['weather'].get('hu', None)
-            wind_speed = data['current']['weather'].get('ws', None)
-            wind_direction = data['current']['weather'].get('wd', None)
-            weather_icon = data['current']['weather'].get('ic', None)
+# Close MongoDB connection
+client.close()
+
+# Convert data to DataFrame
+df = pd.DataFrame(data)
+
+# Weather icon mapping (example, you need to have these images)
+icon_mapping = {
+    '01d': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/01d.png', 'Clear sky (day)'),
+    '01n': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/01n.png', 'Clear sky (night)'),
+    '02d': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/02d.png', 'Few clouds (day)'),
+    '02n': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/02n.png', 'Few clouds (night)'),
+    '03d': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/03d.png', 'Scattered clouds'),
+    '04d': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/04d.png', 'Broken clouds'),
+    '09d': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/09d.png', 'Shower rain'),
+    '10d': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/10d.png', 'Rain (day time)'),
+    '10n': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/10n.png', 'Rain (night time)'),
+    '11d': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/11d.png', 'Thunderstorm'),
+    '13d': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/13d.png', 'Snow'),
+    '50d': ('https://github.com/siddharthp1997/Air-Quality-Dashboard/blob/8983373f0950fea44865a1b3cfa58f67e166df57/Images/50d.png', 'Mist'),
+}
+
+# Replace Weather Icon codes with image URLs and descriptions
+df['Weather Icon URL'] = df['Weather Icon'].map(lambda x: icon_mapping[x][0] if x in icon_mapping else None)
+df['Weather Icon Description'] = df['Weather Icon'].map(lambda x: icon_mapping[x][1] if x in icon_mapping else 'Error')
+
+# Streamlit dashboard
+st.title("Air Quality Dashboard")
+
+# Show the latest data for each city as a table
+st.header("Latest Air Quality Data for Each City")
+latest_df = df.sort_values(by=['City', 'Date', 'Time']).groupby('City').tail(1)
+
+# Filter out rows with '-1' or 'Error'
+filtered_latest_df = latest_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna()
+
+# Display the latest data for each city in a table
+st.write(filtered_latest_df[['City', 'State', 'Country', 'AQI (US)', 'Main Pollutant (US)', 
+                             'AQI (CN)', 'Main Pollutant (CN)', 'Temperature (°C)', 
+                             'Pressure (hPa)', 'Humidity (%)', 'Wind Speed (m/s)', 
+                             'Wind Direction (°)', 'Date', 'Time']].to_markdown(index=False))
+
+# Dropdown to select a city to see variation
+st.header("Variation of Air Quality Data Over Time")
+city = st.selectbox("Select a city", df['City'].unique(), index=0)
+city_df = df[df['City'] == city]
+
+# Display graphs for all columns with multiple readings per day
+for col in city_df.columns:
+    if col not in ['_id', 'City', 'State', 'Country', 'Date', 'Time', 'Weather Icon', 'Weather Icon URL', 'Weather Icon Description']:  # Exclude non-numeric columns and icon columns
+        filtered_city_df = city_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna(subset=[col])
+        if not filtered_city_df.empty:
+            fig = px.line(filtered_city_df, x='Time', y=col, title=f'{col} Variation in {city}', markers=True)
+            fig.update_layout(xaxis_title='Time', yaxis_title=col)
             
-            # Get current date and time in New York timezone
-            eastern = pytz.timezone('America/New_York')
-            now = datetime.now(eastern)
-            date = now.strftime("%Y-%m-%d")
-            time = now.strftime("%H:%M:%S")
-            
-            city_data = {
-                'City': city,
-                'State': state,
-                'Country': 'USA',
-                'AQI (US)': aqi_us,
-                'Main Pollutant (US)': main_pollutant_us,
-                'AQI (CN)': aqi_cn,
-                'Main Pollutant (CN)': main_pollutant_cn,
-                'Temperature (°C)': temperature,
-                'Pressure (hPa)': pressure,
-                'Humidity (%)': humidity,
-                'Wind Speed (m/s)': wind_speed,
-                'Wind Direction (°)': wind_direction,
-                'Weather Icon': weather_icon,
-                'Date': date,  # Add date field
-                'Time': time   # Add time field
-            }
-            
-            # Replace None with 'NA' string
-            for key, value in city_data.items():
-                if value is None:
-                    city_data[key] = 'NA'
-            
-            return city_data
-        
-        else:
-            print(f"No data available for {city}, {state}")
-            return {
-                'City': city,
-                'State': state,
-                'Country': 'USA',
-                'AQI (US)': 'NA',
-                'Main Pollutant (US)': 'Error',
-                'AQI (CN)': 'NA',
-                'Main Pollutant (CN)': 'Error',
-                'Temperature (°C)': 'NA',
-                'Pressure (hPa)': 'NA',
-                'Humidity (%)': 'NA',
-                'Wind Speed (m/s)': 'NA',
-                'Wind Direction (°)': 'NA',
-                'Weather Icon': 'Error',
-                'Date': date,  # Add date field
-                'Time': time   # Add time field
-            }
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to fetch data for {city}, {state}: {str(e)}")
-        now = datetime.now(eastern)
-        date = now.strftime("%Y-%m-%d")
-        time = now.strftime("%H:%M:%S")
-        return {
-            'City': city,
-            'State': state,
-            'Country': 'USA',
-            'AQI (US)': 'NA',
-            'Main Pollutant (US)': 'Error',
-            'AQI (CN)': 'NA',
-            'Main Pollutant (CN)': 'Error',
-            'Temperature (°C)': 'NA',
-            'Pressure (hPa)': 'NA',
-            'Humidity (%)': 'NA',
-            'Wind Speed (m/s)': 'NA',
-            'Wind Direction (°)': 'NA',
-            'Weather Icon': 'Error',
-            'Date': date,  # Add date field
-            'Time': time   # Add time field
-        }
-
-# Function to process cities in batches and wait between batches
-def process_cities_in_batches(cities, batch_size=4, delay=60):
-    all_city_data = []
-    for i in range(0, len(cities), batch_size):
-        cities_batch = cities[i:i+batch_size]
-        batch_data = []
-        for city_info in cities_batch:
-            city_data = fetch_air_quality_data(city_info)
-            batch_data.append(city_data)
-        all_city_data.extend(batch_data)
-        if i + batch_size < len(cities):
-            print(f"Processed batch {i//batch_size + 1}/{len(cities)//batch_size}")
-            sleep(delay)  # Wait before making the next batch request
-    return all_city_data
-
-# Function to save data to MongoDB
-def save_to_mongodb(data):
-    client = MongoClient(ATLAS_URI)
-    db = client[MONGO_DB]
-    collection = db[MONGO_COLLECTION]
-    try:
-        collection.insert_many(data)
-    except Exception as e:
-        print(f"Failed to save data to MongoDB: {str(e)}")
-    finally:
-        client.close()
-
-# Process cities in batches and fetch air quality data
-all_city_data = process_cities_in_batches(cities)
-
-# Save data to MongoDB
-save_to_mongodb(all_city_data)
-
-# Create a pandas DataFrame from the fetched data (optional)
-df = pd.DataFrame(all_city_data)
-print(df)
+            # Add weather icons to the plot
+            for i, row in filtered_city_df.iterrows():
+                if row['Weather Icon URL'] and pd.notna(row['Weather Icon URL']):
+                    fig.add_layout_image(
+                        dict(
+                            source=row['Weather Icon URL'],
+                            x=row['Time'],
+                            y=row[col],
+                            xref="x",
+                            yref="y",
+                            sizex=0.1,
+                            sizey=0.1,
+                            xanchor="center",
+                            yanchor="middle"
+                        )
+                    )
+            st.plotly_chart(fig)
