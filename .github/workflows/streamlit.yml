@@ -1,0 +1,40 @@
+name: Deploy Streamlit App
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 */6 * * *"  # Run every 6 hours
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x  # Specify your Python version here
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set environment variables
+        run: |
+          echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> $GITHUB_ENV
+          echo "API_KEY=${{ secrets.API_KEY }}" >> $GITHUB_ENV
+          echo "ATLAS_URI=mongodb+srv://siddharthpandit14:NVD4QdmYrOuEjM5S@cluster0.rnvys22.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0" >> $GITHUB_ENV
+          echo "MONGO_DB=air_quality" >> $GITHUB_ENV
+          echo "MONGO_COLLECTION=city_data" >> $GITHUB_ENV
+
+      - name: Run Streamlit app
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          streamlit run app.py
