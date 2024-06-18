@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # MongoDB connection settings
-ATLAS_URI = os.getenv('ATLAS_URI')
-MONGO_DB = os.getenv('MONGO_DB')
-MONGO_COLLECTION = os.getenv('MONGO_COLLECTION')
+ATLAS_URI = str(os.getenv('ATLAS_URI'))
+MONGO_DB = str(os.getenv('MONGO_DB'))
+MONGO_COLLECTION = str(os.getenv('MONGO_COLLECTION'))
 
 # Connect to MongoDB
 client = MongoClient(ATLAS_URI)
