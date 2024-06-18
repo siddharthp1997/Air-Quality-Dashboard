@@ -50,45 +50,31 @@ df['Weather Icon Description'] = df['Weather Icon'].map(lambda x: icon_mapping[x
 # Streamlit dashboard
 st.title("Air Quality Dashboard")
 
-# Show the latest data for each city
+# Show the latest data for each city as a table
 st.header("Latest Air Quality Data for Each City")
 latest_df = df.sort_values(by=['City', 'Date', 'Time']).groupby('City').tail(1)
 
 # Filter out rows with '-1' or 'Error'
 filtered_latest_df = latest_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna()
 
-# Display the latest data for each city with images and descriptions
-for index, row in filtered_latest_df.iterrows():
-    st.write(f"**City:** {row['City']}")
-    st.write(f"**State:** {row['State']}")
-    st.write(f"**Country:** {row['Country']}")
-    st.write(f"**AQI (US):** {row['AQI (US)']}")
-    st.write(f"**Main Pollutant (US):** {row['Main Pollutant (US)']}")
-    st.write(f"**AQI (CN):** {row['AQI (CN)']}")
-    st.write(f"**Main Pollutant (CN):** {row['Main Pollutant (CN)']}")
-    st.write(f"**Temperature (°C):** {row['Temperature (°C)']}")
-    st.write(f"**Pressure (hPa):** {row['Pressure (hPa)']}")
-    st.write(f"**Humidity (%):** {row['Humidity (%)']}")
-    st.write(f"**Wind Speed (m/s):** {row['Wind Speed (m/s)']}")
-    st.write(f"**Wind Direction (°):** {row['Wind Direction (°)']}")
-    if row['Weather Icon URL'] and pd.notna(row['Weather Icon URL']):
-        st.image(row['Weather Icon URL'], caption=row['Weather Icon Description'])
-    st.write(f"**Date:** {row['Date']}")
-    st.write(f"**Time:** {row['Time']}")
-    st.write("---")
+# Display the latest data for each city in a table
+st.write(filtered_latest_df[['City', 'State', 'Country', 'AQI (US)', 'Main Pollutant (US)', 
+                             'AQI (CN)', 'Main Pollutant (CN)', 'Temperature (°C)', 
+                             'Pressure (hPa)', 'Humidity (%)', 'Wind Speed (m/s)', 
+                             'Wind Direction (°)', 'Date', 'Time']].to_markdown(index=False))
 
 # Dropdown to select a city to see variation
 st.header("Variation of Air Quality Data Over Time")
 city = st.selectbox("Select a city", df['City'].unique(), index=0)
 city_df = df[df['City'] == city]
 
-# Display graphs for all columns
+# Display graphs for all columns with multiple readings per day
 for col in city_df.columns:
     if col not in ['_id', 'City', 'State', 'Country', 'Date', 'Time', 'Weather Icon', 'Weather Icon URL', 'Weather Icon Description']:  # Exclude non-numeric columns and icon columns
         filtered_city_df = city_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna(subset=[col])
         if not filtered_city_df.empty:
-            fig = px.line(filtered_city_df, x='Date', y=col, title=f'{col} Variation in {city}', markers=True)
-            fig.update_layout(xaxis_title='Date', yaxis_title=col)
+            fig = px.line(filtered_city_df, x='Time', y=col, title=f'{col} Variation in {city}', markers=True)
+            fig.update_layout(xaxis_title='Time', yaxis_title=col)
             
             # Add weather icons to the plot
             for i, row in filtered_city_df.iterrows():
@@ -96,7 +82,7 @@ for col in city_df.columns:
                     fig.add_layout_image(
                         dict(
                             source=row['Weather Icon URL'],
-                            x=row['Date'],
+                            x=row['Time'],
                             y=row[col],
                             xref="x",
                             yref="y",
