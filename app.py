@@ -52,16 +52,21 @@ st.title("Air Quality Dashboard")
 
 # Show the latest data for each city as a table
 st.header("Latest Air Quality Data for Each City")
-latest_df = df.sort_values(by=['City', 'Date', 'Time']).groupby('City').tail(1)
 
-# Filter out rows with '-1' or 'Error'
-filtered_latest_df = latest_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna()
+# Check if there is data in the DataFrame
+if df.empty:
+    st.write("No data available in the database.")
+else:
+    latest_df = df.sort_values(by=['City', 'Date', 'Time']).groupby('City').tail(1)
 
-# Display the latest data for each city in a pretty table
-st.table(filtered_latest_df[['City', 'State', 'Country', 'AQI (US)', 'Main Pollutant (US)', 
-                             'AQI (CN)', 'Main Pollutant (CN)', 'Temperature (°C)', 
-                             'Pressure (hPa)', 'Humidity (%)', 'Wind Speed (m/s)', 
-                             'Wind Direction (°)', 'Date', 'Time']])
+    # Filter out rows with '-1' or 'Error'
+    filtered_latest_df = latest_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna()
+
+    # Display the latest data for each city in a pretty table
+    st.table(filtered_latest_df[['City', 'State', 'Country', 'AQI (US)', 'Main Pollutant (US)', 
+                                 'AQI (CN)', 'Main Pollutant (CN)', 'Temperature (°C)', 
+                                 'Pressure (hPa)', 'Humidity (%)', 'Wind Speed (m/s)', 
+                                 'Wind Direction (°)', 'Date', 'Time']])
 
 # Dropdown to select a city to see variation
 st.header("Variation of Air Quality Data Over Time")
@@ -93,3 +98,5 @@ for col in city_df.columns:
                         )
                     )
             st.plotly_chart(fig)
+        else:
+            st.write(f"No data available for {city}.")
