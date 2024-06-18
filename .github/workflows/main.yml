@@ -1,9 +1,9 @@
 name: Fetch Air Quality Data
 
 on:
-  #push:
-    #branches:
-      #- main  # Run on push to main branch
+  push:
+    branches:
+      - main  # Run on push to main branch
   schedule:
     - cron: '0 */6 * * *'  # Runs every 6 hours  
 
