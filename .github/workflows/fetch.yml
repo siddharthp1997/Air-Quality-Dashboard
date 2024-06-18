@@ -1,4 +1,4 @@
-name: Fetch Air Quality Data
+name: Fetch Air Quality Data Run
 
 on:
   schedule:
