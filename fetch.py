@@ -13,12 +13,8 @@ load_dotenv()
 API_KEY = os.getenv('API_KEY')
 
 # MongoDB connection settings
-#MONGO_DB = os.getenv('MONGO_DB')
-#MONGO_COLLECTION = os.getenv('MONGO_COLLECTION')
 MONGO_DB = str(os.getenv('MONGO_DB'))
 MONGO_COLLECTION = str(os.getenv('MONGO_COLLECTION'))
-#MONGO_DB="air_quality"
-#MONGO_COLLECTION="city_data"
 ATLAS_URI = os.getenv('ATLAS_URI')
 
 # List of major cities in the USA
@@ -27,33 +23,6 @@ cities = [
     {'city': 'New York City', 'state': 'New York'},
     {'city': 'Chicago', 'state': 'Illinois'},
     {'city': 'Houston', 'state': 'Texas'},
-    """
-    {'city': 'Phoenix', 'state': 'Arizona'},
-    {'city': 'Philadelphia', 'state': 'Pennsylvania'},
-    {'city': 'San Antonio', 'state': 'Texas'},
-    {'city': 'San Diego', 'state': 'California'},
-    {'city': 'Dallas', 'state': 'Texas'},
-    {'city': 'San Jose', 'state': 'California'},
-    {'city': 'Austin', 'state': 'Texas'},
-    {'city': 'Jacksonville', 'state': 'Florida'},
-    {'city': 'San Francisco', 'state': 'California'},
-    {'city': 'Indianapolis', 'state': 'Indiana'},
-    {'city': 'Columbus', 'state': 'Ohio'},
-    {'city': 'Fort Worth', 'state': 'Texas'},
-    {'city': 'Charlotte', 'state': 'North Carolina'},
-    {'city': 'Seattle', 'state': 'Washington'},
-    {'city': 'Denver', 'state': 'Colorado'},
-    {'city': 'Boston', 'state': 'Massachusetts'},
-    {'city': 'El Paso', 'state': 'Texas'},
-    {'city': 'Nashville', 'state': 'Tennessee'},
-    {'city': 'Detroit', 'state': 'Michigan'},
-    {'city': 'Oklahoma City', 'state': 'Oklahoma'},
-    {'city': 'Portland', 'state': 'Oregon'},
-    {'city': 'Las Vegas', 'state': 'Nevada'},
-    {'city': 'Memphis', 'state': 'Tennessee'},
-    {'city': 'Louisville', 'state': 'Kentucky'},
-    {'city': 'Baltimore', 'state': 'Maryland'},
-    """
 ]
 
 # AirVisual API endpoint
@@ -73,38 +42,26 @@ def fetch_air_quality_data(city_info):
         data = result.get('data')
         
         if data:
-            aqi_us = data['current']['pollution'].get('aqius', -1)
-            main_pollutant_us = data['current']['pollution'].get('mainus', 'Error')
-            aqi_cn = data['current']['pollution'].get('aqicn', -1)
-            main_pollutant_cn = data['current']['pollution'].get('maincn', 'Error')
-            temperature = data['current']['weather'].get('tp', -1)
-            pressure = data['current']['weather'].get('pr', -1)
-            humidity = data['current']['weather'].get('hu', -1)
-            wind_speed = data['current']['weather'].get('ws', -1)
-            wind_direction = data['current']['weather'].get('wd', -1)
-            weather_icon = data['current']['weather'].get('ic', 'Error')
-            
-            # Get current date and time separately
-            now = datetime.now()
-            date = now.strftime("%Y-%m-%d")
-            time = now.strftime("%H:%M:%S")
+            current = data['current']
+            pollution = current.get('pollution', {})
+            weather = current.get('weather', {})
             
             city_data = {
                 'City': city,
                 'State': state,
                 'Country': 'USA',
-                'AQI (US)': aqi_us,
-                'Main Pollutant (US)': main_pollutant_us,
-                'AQI (CN)': aqi_cn,
-                'Main Pollutant (CN)': main_pollutant_cn,
-                'Temperature (°C)': temperature,
-                'Pressure (hPa)': pressure,
-                'Humidity (%)': humidity,
-                'Wind Speed (m/s)': wind_speed,
-                'Wind Direction (°)': wind_direction,
-                'Weather Icon': weather_icon,
-                'Date': date,  # Add date field
-                'Time': time   # Add time field
+                'AQI (US)': pollution.get('aqius', -1),
+                'Main Pollutant (US)': pollution.get('mainus', 'Error'),
+                'AQI (CN)': pollution.get('aqicn', -1),
+                'Main Pollutant (CN)': pollution.get('maincn', 'Error'),
+                'Temperature (°C)': weather.get('tp', -1),
+                'Pressure (hPa)': weather.get('pr', -1),
+                'Humidity (%)': weather.get('hu', -1),
+                'Wind Speed (m/s)': weather.get('ws', -1),
+                'Wind Direction (°)': weather.get('wd', -1),
+                'Weather Icon': weather.get('ic', 'Error'),
+                'Date': datetime.now().strftime("%Y-%m-%d"),
+                'Time': datetime.now().strftime("%H:%M:%S")
             }
             
             return city_data
@@ -125,15 +82,12 @@ def fetch_air_quality_data(city_info):
                 'Wind Speed (m/s)': -1,
                 'Wind Direction (°)': -1,
                 'Weather Icon': 'Error',
-                'Date': date,  # Add date field
-                'Time': time   # Add time field
+                'Date': datetime.now().strftime("%Y-%m-%d"),
+                'Time': datetime.now().strftime("%H:%M:%S")
             }
         
     except requests.exceptions.RequestException as e:
         print(f"Failed to fetch data for {city}, {state}: {str(e)}")
-        now = datetime.now()
-        date = now.strftime("%Y-%m-%d")
-        time = now.strftime("%H:%M:%S")
         return {
             'City': city,
             'State': state,
@@ -148,8 +102,8 @@ def fetch_air_quality_data(city_info):
             'Wind Speed (m/s)': -1,
             'Wind Direction (°)': -1,
             'Weather Icon': 'Error',
-            'Date': date,  # Add date field
-            'Time': time   # Add time field
+            'Date': datetime.now().strftime("%Y-%m-%d"),
+            'Time': datetime.now().strftime("%H:%M:%S")
         }
 
 # Function to process cities in batches and wait between batches
