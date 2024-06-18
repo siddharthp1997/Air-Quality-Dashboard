@@ -1,0 +1,36 @@
+name: Fetch Air Quality Data
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Runs every 6 hours
+
+jobs:
+  fetch-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Set environment variables
+        run: |
+          echo "API_KEY=${{ secrets.API_KEY }}" >> $GITHUB_ENV
+          echo "ATLAS_URI=mongodb+srv://siddharthpandit14:NVD4QdmYrOuEjM5S@cluster0.rnvys22.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0" >> $GITHUB_ENV
+          echo "MONGO_DB=air_quality" >> $GITHUB_ENV
+          echo "MONGO_COLLECTION=city_data" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run fetch.py
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          MONGO_URI: ${{ secrets.ATLAS_URI }}
+        run: python fetch.py
