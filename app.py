@@ -57,11 +57,12 @@ latest_df = df.sort_values(by=['City', 'Date', 'Time']).groupby('City').tail(1)
 # Filter out rows with '-1' or 'Error'
 filtered_latest_df = latest_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna()
 
-# Display the latest data for each city in a table
-st.write(filtered_latest_df[['City', 'State', 'Country', 'AQI (US)', 'Main Pollutant (US)', 
-                             'AQI (CN)', 'Main Pollutant (CN)', 'Temperature (°C)', 
-                             'Pressure (hPa)', 'Humidity (%)', 'Wind Speed (m/s)', 
-                             'Wind Direction (°)', 'Date', 'Time']].to_markdown(index=False))
+# Display the latest data for each city in a scrollable table
+table_markdown = filtered_latest_df[['City', 'State', 'Country', 'AQI (US)', 'Main Pollutant (US)', 
+                                     'AQI (CN)', 'Main Pollutant (CN)', 'Temperature (°C)', 
+                                     'Pressure (hPa)', 'Humidity (%)', 'Wind Speed (m/s)', 
+                                     'Wind Direction (°)', 'Date', 'Time']].to_markdown(index=False)
+st.markdown(f'<div style="max-height: 600px; overflow-y: auto;">{table_markdown}</div>', unsafe_allow_html=True)
 
 # Dropdown to select a city to see variation
 st.header("Variation of Air Quality Data Over Time")
