@@ -13,8 +13,10 @@ load_dotenv()
 API_KEY = os.getenv('API_KEY')
 
 # MongoDB connection settings
-MONGO_DB = os.getenv('MONGO_DB')
-MONGO_COLLECTION = os.getenv('MONGO_COLLECTION')
+#MONGO_DB = os.getenv('MONGO_DB')
+#MONGO_COLLECTION = os.getenv('MONGO_COLLECTION')
+MONGO_DB=air_quality
+MONGO_COLLECTION=city_data
 ATLAS_URI = os.getenv('ATLAS_URI')
 print(API_KEY)
 
