@@ -27,6 +27,7 @@ cities = [
     {'city': 'New York City', 'state': 'New York'},
     {'city': 'Chicago', 'state': 'Illinois'},
     {'city': 'Houston', 'state': 'Texas'},
+    """
     {'city': 'Phoenix', 'state': 'Arizona'},
     {'city': 'Philadelphia', 'state': 'Pennsylvania'},
     {'city': 'San Antonio', 'state': 'Texas'},
@@ -52,6 +53,7 @@ cities = [
     {'city': 'Memphis', 'state': 'Tennessee'},
     {'city': 'Louisville', 'state': 'Kentucky'},
     {'city': 'Baltimore', 'state': 'Maryland'},
+    """
 ]
 
 # AirVisual API endpoint
