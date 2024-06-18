@@ -36,5 +36,7 @@ jobs:
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
           API_KEY: ${{ secrets.API_KEY }}
+          MONGO_DB: $${{ secrets.MONGO_DB }}
+          MONGO_COLLECTION: $${{ secrets.MONGO_COLLECTION }}
         run: |
           streamlit run app.py
