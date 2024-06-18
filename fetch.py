@@ -79,9 +79,14 @@ def fetch_air_quality_data(city_info):
             wind_direction = data['current']['weather'].get('wd', None)
             weather_icon = data['current']['weather'].get('ic', None)
             
-            # Get current date and time in New York timezone
+            # Set timezone to Eastern Standard Time (EST)
             eastern = pytz.timezone('America/New_York')
-            now = datetime.now(eastern)
+
+            # Get current UTC time
+            utc_now = datetime.utcnow()
+
+            # Convert UTC time to EST
+            now = utc_now.replace(tzinfo=pytz.utc).astimezone(eastern)
             date = now.strftime("%Y-%m-%d")
             time = now.strftime("%H:%M:%S")
             
