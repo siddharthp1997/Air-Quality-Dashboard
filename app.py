@@ -4,6 +4,8 @@ from pymongo import MongoClient
 import pandas as pd
 import plotly.express as px
 from dotenv import load_dotenv
+from datetime import datetime
+import pytz
 
 # Load environment variables from .env file
 load_dotenv()
@@ -96,8 +98,9 @@ if data:
         if col not in ['_id', 'City', 'State', 'Country', 'Date', 'Time', 'Weather Icon', 'Weather Icon URL', 'Weather Icon Description']:  # Exclude non-numeric columns and icon columns
             filtered_city_df = city_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna(subset=[col])
             if not filtered_city_df.empty:
-                fig = px.line(filtered_city_df, x='Time', y=col, title=f'{col} Variation in {city}', markers=True)
-                fig.update_layout(xaxis_title='Time', yaxis_title=col)
+                filtered_city_df['DateTime'] = pd.to_datetime(filtered_city_df['Date'] + ' ' + filtered_city_df['Time'])
+                fig = px.line(filtered_city_df, x='DateTime', y=col, title=f'{col} Variation in {city}', markers=True)
+                fig.update_layout(xaxis_title='DateTime', yaxis_title=col)
                 
                 # Add weather icons to the plot
                 for i, row in filtered_city_df.iterrows():
@@ -105,7 +108,7 @@ if data:
                         fig.add_layout_image(
                             dict(
                                 source=row['Weather Icon URL'],
-                                x=row['Time'],
+                                x=row['DateTime'],
                                 y=row[col],
                                 xref="x",
                                 yref="y",
