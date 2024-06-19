@@ -13,7 +13,7 @@ Python 3.11 or higher
 MongoDB Atlas account (for data storage)
 GitHub repository (for code hosting and automation)
 
-###Installation
+### Installation
 1. Clone the repository:
    
 git clone https://github.com/your-username/air-quality-dashboard.git
