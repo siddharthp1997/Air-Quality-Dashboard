@@ -17,6 +17,7 @@ GitHub repository (for code hosting and automation)
 1. Clone the repository:
    
 git clone https://github.com/your-username/air-quality-dashboard.git](https://github.com/siddharthp1997/Air-Quality-Dashboard.git
+
 cd air-quality-dashboard
 
 2. Install dependencies:
