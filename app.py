@@ -81,7 +81,6 @@ if data:
 
         # Filter out rows with '-1' or 'Error'
         filtered_latest_df = latest_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna()
-                   'Wind Direction (°)', 'Date', 'Time']])
         
     # Display a default graph for all cities with different colors
     st.header("Air Quality Data for All Cities")
