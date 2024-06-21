@@ -88,6 +88,14 @@ if data:
                                      'Pressure (hPa)', 'Humidity (%)', 'Wind Speed (m/s)', 
                                      'Wind Direction (°)', 'Date', 'Time']])
 
+    # Display a default graph for all cities with different colors
+    st.header("Air Quality Data for All Cities")
+    if not df.empty:
+        df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
+        fig_all_cities = px.line(df, x='DateTime', y='AQI (US)', color='City', title='AQI (US) Variation Across Cities', markers=True)
+        fig_all_cities.update_layout(xaxis_title='DateTime', yaxis_title='AQI (US)')
+        st.plotly_chart(fig_all_cities)
+
     # Dropdown to select a city to see variation
     st.header("Variation of Air Quality Data Over Time")
     city = st.selectbox("Select a city", df['City'].unique(), index=0)
