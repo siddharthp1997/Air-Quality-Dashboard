@@ -83,11 +83,12 @@ if data:
         filtered_latest_df = latest_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna()
 
         # Display the latest data for each city in a pretty table
-        #st.table(filtered_latest_df[['City', 'State', 'Country', 'AQI (US)', 'Main Pollutant (US)', 
+        '''
+        st.table(filtered_latest_df[['City', 'State', 'Country', 'AQI (US)', 'Main Pollutant (US)', 
                                      'AQI (CN)', 'Main Pollutant (CN)', 'Temperature (°C)', 
                                      'Pressure (hPa)', 'Humidity (%)', 'Wind Speed (m/s)', 
                                      'Wind Direction (°)', 'Date', 'Time']])
-
+        '''
     # Display a default graph for all cities with different colors
     st.header("Air Quality Data for All Cities")
     if not df.empty:
