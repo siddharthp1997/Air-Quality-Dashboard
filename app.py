@@ -71,7 +71,7 @@ if data:
     st.title("Air Quality Dashboard")
 
     # Show the latest data for each city as a table
-    st.header("Latest Air Quality Data for Each City")
+    # st.header("Latest Air Quality Data for Each City")
 
     # Check if there is data in the DataFrame
     if df.empty:
@@ -83,7 +83,7 @@ if data:
         filtered_latest_df = latest_df.replace({'-1': pd.NA, 'Error': pd.NA}).dropna()
 
         # Display the latest data for each city in a pretty table
-        st.table(filtered_latest_df[['City', 'State', 'Country', 'AQI (US)', 'Main Pollutant (US)', 
+        #st.table(filtered_latest_df[['City', 'State', 'Country', 'AQI (US)', 'Main Pollutant (US)', 
                                      'AQI (CN)', 'Main Pollutant (CN)', 'Temperature (°C)', 
                                      'Pressure (hPa)', 'Humidity (%)', 'Wind Speed (m/s)', 
                                      'Wind Direction (°)', 'Date', 'Time']])
