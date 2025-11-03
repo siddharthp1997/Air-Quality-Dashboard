@@ -187,7 +187,7 @@ def fetch_city(city_info):
             "Source": "aqicn", "status": "error",
         }
 
-def process_cities_in_batches(cities, batch_size=4, delay_seconds=60):
+def process_cities_in_batches(cities, batch_size=4, delay_seconds=1):
     out = []
     for i in range(0, len(cities), batch_size):
         batch = cities[i:i+batch_size]
