@@ -25,7 +25,7 @@ jobs:
 
       - name: Run fetch.py
         env:
-          API_TOKEN: ${{ secrets.API_TOKEN }}   # 👈 use your actual AQICN token secret
+          API_KEY: ${{ secrets.API_KEY }}   # 👈 use your actual AQICN token secret
           ATLAS_URI: ${{ secrets.ATLAS_URI }}
           MONGO_DB: ${{ secrets.MONGO_DB }}
           MONGO_COLLECTION: ${{ secrets.MONGO_COLLECTION }}
