@@ -270,7 +270,7 @@ def fetch_city(city_info):
             "Source": "aqicn", "status": "error",
         }
 
-def process_cities_in_batches(cities, batch_size=3, delay_seconds=12):
+def process_cities_in_batches(cities, batch_size=3, delay_seconds=1):
     out = []
     for i in range(0, len(cities), batch_size):
         batch = cities[i:i+batch_size]
@@ -292,6 +292,6 @@ def save_to_mongodb(records):
         client.close()
 
 if __name__ == "__main__":
-    records = process_cities_in_batches(CITIES, batch_size=3, delay_seconds=12)
+    records = process_cities_in_batches(CITIES, batch_size=3, delay_seconds=1)
     save_to_mongodb(records)
     print(pd.DataFrame(records).head(3))
