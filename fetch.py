@@ -166,7 +166,7 @@ def fetch_air_quality_data(city_info):
         }
 
 # Function to process cities in batches and wait between batches
-def process_cities_in_batches(cities, batch_size=4, delay=60):
+def process_cities_in_batches(cities, batch_size=4, delay=5): # DELAY 60
     all_city_data = []
     for i in range(0, len(cities), batch_size):
         cities_batch = cities[i:i+batch_size]
