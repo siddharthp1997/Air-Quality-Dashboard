@@ -2,23 +2,25 @@ import os
 from dotenv import load_dotenv
 import requests
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from time import sleep
 from pymongo import MongoClient
-import pytz  # Import pytz library for timezone handling
+import pytz
+from urllib.parse import quote
 
-# Load environment variables from .env file
+# ------------------------
+# Env & constants
+# ------------------------
 load_dotenv()
 
-# AirVisual API key
-API_KEY = os.getenv('API_KEY')
-
-# MongoDB connection settings
+AQICN_TOKEN = os.getenv('AQICN_TOKEN')  # NEW
 MONGO_DB = str(os.getenv('MONGO_DB'))
 MONGO_COLLECTION = str(os.getenv('MONGO_COLLECTION'))
 ATLAS_URI = os.getenv('ATLAS_URI')
 
-# List of major cities in the USA
+AQICN_ENDPOINT = "https://api.waqi.info/feed/{q}/?token={token}"
+
+# Keep your city list
 cities = [
     {'city': 'Los Angeles', 'state': 'California'},
     {'city': 'New York City', 'state': 'New York'},
@@ -51,136 +53,185 @@ cities = [
     {'city': 'Baltimore', 'state': 'Maryland'},
 ]
 
-# AirVisual API endpoint
-API_ENDPOINT = "http://api.airvisual.com/v2/city"
+# ------------------------
+# Helpers
+# ------------------------
+def now_est_date_time():
+    eastern = pytz.timezone('America/New_York')
+    utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
+    now = utc_now.astimezone(eastern)
+    return now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
 
-# Function to fetch air quality data for a single city
-def fetch_air_quality_data(city_info):
-    city = city_info['city']
-    state = city_info['state']
-    url = f"{API_ENDPOINT}?city={city}&state={state}&country=USA&key={API_KEY}"
-    
+def aqi_category(aqi):
+    """US AQI category label."""
     try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raise error for bad response status
-        
-        result = response.json()
-        data = result.get('data')
-        
-        if data:
-            aqi_us = data['current']['pollution'].get('aqius', None)
-            main_pollutant_us = data['current']['pollution'].get('mainus', None)
-            aqi_cn = data['current']['pollution'].get('aqicn', None)
-            main_pollutant_cn = data['current']['pollution'].get('maincn', None)
-            temperature = data['current']['weather'].get('tp', None)
-            pressure = data['current']['weather'].get('pr', None)
-            humidity = data['current']['weather'].get('hu', None)
-            wind_speed = data['current']['weather'].get('ws', None)
-            wind_direction = data['current']['weather'].get('wd', None)
-            weather_icon = data['current']['weather'].get('ic', None)
-            
-            # Set timezone to Eastern Standard Time (EST)
-            eastern = pytz.timezone('America/New_York')
+        aqi = float(aqi)
+    except (TypeError, ValueError):
+        return "Unknown"
+    if aqi <= 50: return "Good"
+    if aqi <= 100: return "Moderate"
+    if aqi <= 150: return "Unhealthy for Sensitive Groups"
+    if aqi <= 200: return "Unhealthy"
+    if aqi <= 300: return "Very Unhealthy"
+    return "Hazardous"
 
-            # Get current UTC time
-            utc_now = datetime.utcnow()
+def safe_float(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
 
-            # Convert UTC time to EST
-            now = utc_now.replace(tzinfo=pytz.utc).astimezone(eastern)
-            date = now.strftime("%Y-%m-%d")
-            time = now.strftime("%H:%M:%S")
-            
-            city_data = {
-                'City': city,
-                'State': state,
-                'Country': 'USA',
-                'AQI (US)': aqi_us,
-                'Main Pollutant (US)': main_pollutant_us,
-                'AQI (CN)': aqi_cn,
-                'Main Pollutant (CN)': main_pollutant_cn,
-                'Temperature (°C)': temperature,
-                'Pressure (hPa)': pressure,
-                'Humidity (%)': humidity,
-                'Wind Speed (m/s)': wind_speed,
-                'Wind Direction (°)': wind_direction,
-                'Weather Icon': weather_icon,
-                'Date': date,  # Add date field
-                'Time': time   # Add time field
-            }
-            
-            # Replace None with 'NA' string
-            for key, value in city_data.items():
-                if value is None:
-                    city_data[key] = 'NA'
-            
-            return city_data
-        
-        else:
-            print(f"No data available for {city}, {state}")
-            return {
-                'City': city,
-                'State': state,
-                'Country': 'USA',
-                'AQI (US)': 'NA',
-                'Main Pollutant (US)': 'Error',
-                'AQI (CN)': 'NA',
-                'Main Pollutant (CN)': 'Error',
-                'Temperature (°C)': 'NA',
-                'Pressure (hPa)': 'NA',
-                'Humidity (%)': 'NA',
-                'Wind Speed (m/s)': 'NA',
-                'Wind Direction (°)': 'NA',
-                'Weather Icon': 'Error',
-                'Date': date,  # Add date field
-                'Time': time   # Add time field
-            }
-        
+def flatten_iaqi(iaqi_dict):
+    """Turn {'pm25': {'v': 90}, 'o3': {'v': 10}} into {'iaqi_pm25': 90, 'iaqi_o3': 10, ...}"""
+    out = {}
+    if not isinstance(iaqi_dict, dict):
+        return out
+    for key, obj in iaqi_dict.items():
+        if isinstance(obj, dict) and 'v' in obj:
+            out[f'iaqi_{key}'] = obj['v']
+    return out
+
+def fetch_feed(query_text):
+    url = AQICN_ENDPOINT.format(q=quote(query_text), token=AQICN_TOKEN)
+    r = requests.get(url, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+# ------------------------
+# Main fetch/normalize
+# ------------------------
+def fetch_air_quality_data(city_info):
+    city_label = city_info['city']
+    state = city_info['state']
+    date_est, time_est = now_est_date_time()
+
+    try:
+        payload = fetch_feed(city_label)
     except requests.exceptions.RequestException as e:
-        print(f"Failed to fetch data for {city}, {state}: {str(e)}")
-        # Set timezone to Eastern Standard Time (EST)
-        eastern = pytz.timezone('America/New_York')
-
-        # Get current UTC time
-        utc_now = datetime.utcnow()
-
-        # Convert UTC time to EST
-        now = utc_now.replace(tzinfo=pytz.utc).astimezone(eastern)
-        date = now.strftime("%Y-%m-%d")
-        time = now.strftime("%H:%M:%S")
+        print(f"Failed to fetch data for {city_label}, {state}: {e}")
         return {
-            'City': city,
-            'State': state,
-            'Country': 'USA',
-            'AQI (US)': 'NA',
+            'City': city_label, 'State': state, 'Country': 'USA',
+            'AQI (US)': 'NA', 'AQI Category': 'Unknown',
             'Main Pollutant (US)': 'Error',
-            'AQI (CN)': 'NA',
-            'Main Pollutant (CN)': 'Error',
-            'Temperature (°C)': 'NA',
-            'Pressure (hPa)': 'NA',
-            'Humidity (%)': 'NA',
-            'Wind Speed (m/s)': 'NA',
-            'Wind Direction (°)': 'NA',
-            'Weather Icon': 'Error',
-            'Date': date,  # Add date field
-            'Time': time   # Add time field
+            'AQI (CN)': 'NA', 'Main Pollutant (CN)': 'NA',
+            'Date': date_est, 'Time': time_est,
+            'Source': 'aqicn', 'status': 'error'
         }
 
-# Function to process cities in batches and wait between batches
+    status = payload.get('status')
+    data = payload.get('data') or {}
+
+    if status != 'ok':
+        return {
+            'City': city_label, 'State': state, 'Country': 'USA',
+            'AQI (US)': 'NA', 'AQI Category': 'Unknown',
+            'Main Pollutant (US)': 'Error',
+            'AQI (CN)': 'NA', 'Main Pollutant (CN)': 'NA',
+            'Date': date_est, 'Time': time_est,
+            'Source': 'aqicn', 'status': status or 'unknown'
+        }
+
+    # Top-level basics
+    aqi_us = data.get('aqi')
+    dominentpol = data.get('dominentpol')
+    idx = data.get('idx')
+
+    # City/station block
+    city_block = data.get('city') or {}
+    station_name = city_block.get('name') or city_label
+    station_url = city_block.get('url')
+    station_geo = city_block.get('geo') or []
+    lat = station_geo[0] if len(station_geo) > 0 else None
+    lon = station_geo[1] if len(station_geo) > 1 else None
+
+    # Time block from WAQI
+    time_block = data.get('time') or {}
+    time_station_local = time_block.get('s')  # e.g., "2024-10-08 11:00:00"
+    time_station_tz = time_block.get('tz')    # e.g., "+05:30"
+    time_station_v = time_block.get('v')      # epoch-like integer sometimes used by AQICN
+
+    # Attributions (array of {name,url})
+    attribs = data.get('attributions') or []
+    attribution_names = [a.get('name') for a in attribs if isinstance(a, dict) and a.get('name')]
+    attribution_urls = [a.get('url') for a in attribs if isinstance(a, dict) and a.get('url')]
+
+    # iaqi flatten
+    iaqi_flat = flatten_iaqi(data.get('iaqi') or {})
+
+    # Weather-ish convenience fields from iaqi (if present)
+    temp_c = iaqi_flat.get('iaqi_t')
+    humidity_pct = iaqi_flat.get('iaqi_h')
+    wind_mps = iaqi_flat.get('iaqi_w')
+    pressure_hpa = iaqi_flat.get('iaqi_p')
+
+    # Build record
+    record = {
+        # Your existing schema (kept for compatibility)
+        'City': station_name,
+        'State': state,
+        'Country': 'USA',
+        'AQI (US)': aqi_us,
+        'AQI Category': aqi_category(aqi_us),
+        'Main Pollutant (US)': dominentpol,
+        'AQI (CN)': 'NA',                 # You previously stored both; AQICN exposes a single AQI
+        'Main Pollutant (CN)': 'NA',
+
+        # Extra station metadata
+        'Station IDX': idx,
+        'Station URL': station_url,
+        'Station Geo Lat': safe_float(lat),
+        'Station Geo Lon': safe_float(lon),
+
+        # AQICN time fields (as provided)
+        'Station Time (local)': time_station_local,
+        'Station Time TZ': time_station_tz,
+        'Station Time (v)': time_station_v,
+
+        # Convenience ingest timestamp (UTC + EST strings)
+        'Ingested At UTC': datetime.now(timezone.utc).isoformat(),
+        'Date': date_est,        # EST date (your original)
+        'Time': time_est,        # EST time (your original)
+
+        # Attribution
+        'Attribution Names': attribution_names,
+        'Attribution URLs': attribution_urls,
+
+        # Weather-like metrics (if present)
+        'Temperature (°C)': temp_c,
+        'Pressure (hPa)': pressure_hpa,
+        'Humidity (%)': humidity_pct,
+        'Wind Speed (m/s)': wind_mps,
+
+        'Source': 'aqicn',
+        'status': 'ok'
+    }
+
+    # Merge full iaqi flatten (adds iaqi_pm25, iaqi_pm10, iaqi_o3, iaqi_no2, iaqi_so2, iaqi_co, iaqi_t, iaqi_h, iaqi_w, iaqi_p, etc.)
+    record.update(iaqi_flat)
+
+    # Replace None with 'NA' for uniformity in your DF/UI
+    for k, v in list(record.items()):
+        if v is None:
+            record[k] = 'NA'
+
+    return record
+
+# ------------------------
+# Batch, save, print
+# ------------------------
 def process_cities_in_batches(cities, batch_size=4, delay=60):
     all_city_data = []
     for i in range(0, len(cities), batch_size):
         cities_batch = cities[i:i+batch_size]
         batch_data = []
         for city_info in cities_batch:
-            city_data = fetch_air_quality_data(city_info)
-            batch_data.append(city_data)
+            batch_data.append(fetch_air_quality_data(city_info))
         all_city_data.extend(batch_data)
         if i + batch_size < len(cities):
-            print(f"Processed batch {i//batch_size + 1}/{len(cities)//batch_size}")
-            sleep(delay)  # Wait before making the next batch request
+            print(f"Processed batch {i//batch_size + 1}/{(len(cities) + batch_size - 1)//batch_size}")
+            sleep(delay)
     return all_city_data
 
-# Function to save data to MongoDB
 def save_to_mongodb(data):
     client = MongoClient(ATLAS_URI)
     db = client[MONGO_DB]
@@ -192,12 +243,9 @@ def save_to_mongodb(data):
     finally:
         client.close()
 
-# Process cities in batches and fetch air quality data
+# Run
 all_city_data = process_cities_in_batches(cities)
-
-# Save data to MongoDB
 save_to_mongodb(all_city_data)
 
-# Create a pandas DataFrame from the fetched data (optional)
 df = pd.DataFrame(all_city_data)
 print(df)
