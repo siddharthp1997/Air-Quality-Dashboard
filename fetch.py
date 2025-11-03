@@ -1,4 +1,4 @@
-# AQICN-compliant loader (updated for dew/time.iso/forecast)
+# fetch.py — AQICN loader with correct Country handling
 import os
 import requests
 import pandas as pd
@@ -11,104 +11,88 @@ import pytz
 
 load_dotenv()
 
-API_TOKEN = os.getenv("API_TOKEN")
-ATLAS_URI    = os.getenv("ATLAS_URI")
-MONGO_DB     = str(os.getenv("MONGO_DB"))
-MONGO_COLL   = str(os.getenv("MONGO_COLLECTION"))
+API_TOKEN  = os.getenv("API_TOKEN")          # your AQICN token
+ATLAS_URI  = os.getenv("ATLAS_URI")
+MONGO_DB   = str(os.getenv("MONGO_DB"))
+MONGO_COLL = str(os.getenv("MONGO_COLLECTION"))
 
 if not API_TOKEN:
     raise RuntimeError("Missing API_TOKEN in environment")
-    
-CITIES = [
-    # ---------- United States ----------
-    {"city": "New York City", "state": "New York"},
-    {"city": "Los Angeles", "state": "California"},
-    {"city": "Chicago", "state": "Illinois"},
-    {"city": "Houston", "state": "Texas"},
-    {"city": "Phoenix", "state": "Arizona"},
-    {"city": "Philadelphia", "state": "Pennsylvania"},
-    {"city": "San Antonio", "state": "Texas"},
-    {"city": "San Diego", "state": "California"},
-    {"city": "Dallas", "state": "Texas"},
-    {"city": "San Jose", "state": "California"},
-    {"city": "Austin", "state": "Texas"},
-    {"city": "Jacksonville", "state": "Florida"},
-    {"city": "San Francisco", "state": "California"},
-    {"city": "Indianapolis", "state": "Indiana"},
-    {"city": "Columbus", "state": "Ohio"},
-    {"city": "Fort Worth", "state": "Texas"},
-    {"city": "Charlotte", "state": "North Carolina"},
-    {"city": "Seattle", "state": "Washington"},
-    {"city": "Denver", "state": "Colorado"},
-    {"city": "Boston", "state": "Massachusetts"},
-    {"city": "El Paso", "state": "Texas"},
-    {"city": "Nashville", "state": "Tennessee"},
-    {"city": "Detroit", "state": "Michigan"},
-    {"city": "Oklahoma City", "state": "Oklahoma"},
-    {"city": "Portland", "state": "Oregon"},
-    {"city": "Las Vegas", "state": "Nevada"},
-    {"city": "Memphis", "state": "Tennessee"},
-    {"city": "Louisville", "state": "Kentucky"},
-    {"city": "Baltimore", "state": "Maryland"},
-    {"city": "Milwaukee", "state": "Wisconsin"},
-    {"city": "Albuquerque", "state": "New Mexico"},
-    {"city": "Tucson", "state": "Arizona"},
-    {"city": "Fresno", "state": "California"},
-    {"city": "Sacramento", "state": "California"},
-    {"city": "Kansas City", "state": "Missouri"},
-    {"city": "Atlanta", "state": "Georgia"},
-    {"city": "Miami", "state": "Florida"},
-    {"city": "Honolulu", "state": "Hawaii"},
 
-    # ---------- India ----------
-    {"city": "Delhi", "state": "Delhi"},
-    {"city": "Mumbai", "state": "Maharashtra"},
-    {"city": "Bengaluru", "state": "Karnataka"},
-    {"city": "Hyderabad", "state": "Telangana"},
-    {"city": "Ahmedabad", "state": "Gujarat"},
-    {"city": "Chennai", "state": "Tamil Nadu"},
-    {"city": "Kolkata", "state": "West Bengal"},
-    {"city": "Pune", "state": "Maharashtra"},
-    {"city": "Jaipur", "state": "Rajasthan"},
-    {"city": "Lucknow", "state": "Uttar Pradesh"},
-    {"city": "Kanpur", "state": "Uttar Pradesh"},
-    {"city": "Nagpur", "state": "Maharashtra"},
-    {"city": "Indore", "state": "Madhya Pradesh"},
-    {"city": "Thane", "state": "Maharashtra"},
-    {"city": "Bhopal", "state": "Madhya Pradesh"},
-    {"city": "Visakhapatnam", "state": "Andhra Pradesh"},
-    {"city": "Patna", "state": "Bihar"},
-    {"city": "Vadodara", "state": "Gujarat"},
-    {"city": "Ghaziabad", "state": "Uttar Pradesh"},
-    {"city": "Ludhiana", "state": "Punjab"},
-    {"city": "Agra", "state": "Uttar Pradesh"},
-    {"city": "Nashik", "state": "Maharashtra"},
-    {"city": "Ranchi", "state": "Jharkhand"},
-    {"city": "Coimbatore", "state": "Tamil Nadu"},
-    {"city": "Kochi", "state": "Kerala"},
-    {"city": "Vijayawada", "state": "Andhra Pradesh"},
-    {"city": "Mysuru", "state": "Karnataka"},
-    {"city": "Surat", "state": "Gujarat"},
-    {"city": "Noida", "state": "Uttar Pradesh"},
-    {"city": "Gurugram", "state": "Haryana"},
-    {"city": "Chandigarh", "state": "Chandigarh"},
-    {"city": "Bhubaneswar", "state": "Odisha"},
-    {"city": "Trivandrum", "state": "Kerala"},
-    {"city": "Amritsar", "state": "Punjab"},
-    {"city": "Dehradun", "state": "Uttarakhand"},
-    {"city": "Guwahati", "state": "Assam"},
-    {"city": "Jodhpur", "state": "Rajasthan"},
-    {"city": "Raipur", "state": "Chhattisgarh"},
-    {"city": "Madurai", "state": "Tamil Nadu"},
-    {"city": "Varanasi", "state": "Uttar Pradesh"},
-    {"city": "Meerut", "state": "Uttar Pradesh"},
-    {"city": "Rajkot", "state": "Gujarat"},
-    {"city": "Tiruchirappalli", "state": "Tamil Nadu"},
-    {"city": "Mangalore", "state": "Karnataka"},
-    {"city": "Bareilly", "state": "Uttar Pradesh"},
-    {"city": "Jabalpur", "state": "Madhya Pradesh"},
-    {"city": "Gwalior", "state": "Madhya Pradesh"},
-    {"city": "Amravati", "state": "Maharashtra"},
+# --- Countries & US states for inference ---
+US_STATES = {
+  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware",
+  "Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana",
+  "Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana",
+  "Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina",
+  "North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina",
+  "South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia",
+  "Wisconsin","Wyoming"
+}
+
+# ---------- Cities (USA + India top-20) with explicit country ----------
+CITIES = [
+    # USA
+    {"city": "New York City", "state": "New York", "country": "USA"},
+    {"city": "Los Angeles", "state": "California", "country": "USA"},
+    {"city": "Chicago", "state": "Illinois", "country": "USA"},
+    {"city": "Houston", "state": "Texas", "country": "USA"},
+    {"city": "Phoenix", "state": "Arizona", "country": "USA"},
+    {"city": "Philadelphia", "state": "Pennsylvania", "country": "USA"},
+    {"city": "San Antonio", "state": "Texas", "country": "USA"},
+    {"city": "San Diego", "state": "California", "country": "USA"},
+    {"city": "Dallas", "state": "Texas", "country": "USA"},
+    {"city": "San Jose", "state": "California", "country": "USA"},
+    {"city": "Austin", "state": "Texas", "country": "USA"},
+    {"city": "Jacksonville", "state": "Florida", "country": "USA"},
+    {"city": "San Francisco", "state": "California", "country": "USA"},
+    {"city": "Indianapolis", "state": "Indiana", "country": "USA"},
+    {"city": "Columbus", "state": "Ohio", "country": "USA"},
+    {"city": "Fort Worth", "state": "Texas", "country": "USA"},
+    {"city": "Charlotte", "state": "North Carolina", "country": "USA"},
+    {"city": "Seattle", "state": "Washington", "country": "USA"},
+    {"city": "Denver", "state": "Colorado", "country": "USA"},
+    {"city": "Boston", "state": "Massachusetts", "country": "USA"},
+    {"city": "El Paso", "state": "Texas", "country": "USA"},
+    {"city": "Nashville", "state": "Tennessee", "country": "USA"},
+    {"city": "Detroit", "state": "Michigan", "country": "USA"},
+    {"city": "Oklahoma City", "state": "Oklahoma", "country": "USA"},
+    {"city": "Portland", "state": "Oregon", "country": "USA"},
+    {"city": "Las Vegas", "state": "Nevada", "country": "USA"},
+    {"city": "Memphis", "state": "Tennessee", "country": "USA"},
+    {"city": "Louisville", "state": "Kentucky", "country": "USA"},
+    {"city": "Baltimore", "state": "Maryland", "country": "USA"},
+    {"city": "Milwaukee", "state": "Wisconsin", "country": "USA"},
+    {"city": "Albuquerque", "state": "New Mexico", "country": "USA"},
+    {"city": "Tucson", "state": "Arizona", "country": "USA"},
+    {"city": "Fresno", "state": "California", "country": "USA"},
+    {"city": "Sacramento", "state": "California", "country": "USA"},
+    {"city": "Kansas City", "state": "Missouri", "country": "USA"},
+    {"city": "Atlanta", "state": "Georgia", "country": "USA"},
+    {"city": "Miami", "state": "Florida", "country": "USA"},
+    {"city": "Honolulu", "state": "Hawaii", "country": "USA"},
+
+    # India (Top 20)
+    {"city": "Delhi", "state": "Delhi", "country": "India"},
+    {"city": "Mumbai", "state": "Maharashtra", "country": "India"},
+    {"city": "Bengaluru", "state": "Karnataka", "country": "India"},
+    {"city": "Hyderabad", "state": "Telangana", "country": "India"},
+    {"city": "Ahmedabad", "state": "Gujarat", "country": "India"},
+    {"city": "Chennai", "state": "Tamil Nadu", "country": "India"},
+    {"city": "Kolkata", "state": "West Bengal", "country": "India"},
+    {"city": "Surat", "state": "Gujarat", "country": "India"},
+    {"city": "Pune", "state": "Maharashtra", "country": "India"},
+    {"city": "Jaipur", "state": "Rajasthan", "country": "India"},
+    {"city": "Kanpur", "state": "Uttar Pradesh", "country": "India"},
+    {"city": "Lucknow", "state": "Uttar Pradesh", "country": "India"},
+    {"city": "Nagpur", "state": "Maharashtra", "country": "India"},
+    {"city": "Indore", "state": "Madhya Pradesh", "country": "India"},
+    {"city": "Thane", "state": "Maharashtra", "country": "India"},
+    {"city": "Bhopal", "state": "Madhya Pradesh", "country": "India"},
+    {"city": "Visakhapatnam", "state": "Andhra Pradesh", "country": "India"},
+    {"city": "Patna", "state": "Bihar", "country": "India"},
+    {"city": "Vadodara", "state": "Gujarat", "country": "India"},
+    {"city": "Ghaziabad", "state": "Uttar Pradesh", "country": "India"},
 ]
 
 API_TMPL = "https://api.waqi.info/feed/{q}/?token={token}"
@@ -143,16 +127,15 @@ def flatten_iaqi(iaqi):
         return out
     for k, obj in iaqi.items():
         if isinstance(obj, dict) and "v" in obj:
-            out[f"iaqi_{k}"] = obj["v"]  # includes iaqi_dew, iaqi_pm25, iaqi_t, etc.
+            out[f"iaqi_{k}"] = obj["v"]
     return out
 
 def extract_forecast(daily):
-    """Return dict with arrays for pm25/pm10/uvi if present."""
     f = {}
     if not isinstance(daily, dict):
         return f
     if "pm25" in daily:
-        f["Forecast PM25 Daily"] = daily["pm25"]  # list of {day, avg, max, min}
+        f["Forecast PM25 Daily"] = daily["pm25"]
     if "pm10" in daily:
         f["Forecast PM10 Daily"] = daily["pm10"]
     if "uvi" in daily:
@@ -161,17 +144,32 @@ def extract_forecast(daily):
 
 def fetch_feed(query_text):
     url = API_TMPL.format(q=quote(query_text), token=API_TOKEN)
-    r = requests.get(url, timeout=20)
+    r = requests.get(url, timeout=25)
     r.raise_for_status()
     return r.json()
 
-def to_record(city_label, state, payload):
+def infer_country(city_block, provided_country, state):
+    # 1) Honor explicit country from CITIES
+    if provided_country:
+        return provided_country
+    # 2) Infer from AQICN city metadata
+    url = (city_block or {}).get("url") or ""
+    name = (city_block or {}).get("name") or ""
+    Lurl, Lname = url.lower(), name.lower()
+    if "/india/" in Lurl or "india" in Lname:
+        return "India"
+    # 3) US by state membership
+    if state in US_STATES:
+        return "USA"
+    return "Unknown"
+
+def to_record(city_label, state, payload, provided_country=None):
     date_str, time_str = now_est_date_time()
 
     status = payload.get("status")
     if status != "ok":
         return {
-            "City": city_label, "State": state, "Country": "USA",
+            "City": city_label, "State": state, "Country": provided_country or ("USA" if state in US_STATES else "Unknown"),
             "AQI (US)": "NA", "AQI Category": "Unknown",
             "Main Pollutant (US)": "Error",
             "AQI (CN)": "NA", "Main Pollutant (CN)": "NA",
@@ -196,16 +194,17 @@ def to_record(city_label, state, payload):
     t_local = time_block.get("s")
     t_tz    = time_block.get("tz")
     t_v     = time_block.get("v")
-    t_iso   = time_block.get("iso")  # <-- new: present in your sample
+    t_iso   = time_block.get("iso")
 
     iaqi_flat = flatten_iaqi(d.get("iaqi") or {})
     forecast_daily = extract_forecast((d.get("forecast") or {}).get("daily"))
 
+    country = infer_country(city_block, provided_country, state)
+
     rec = {
-        # your existing fields
         "City": name,
         "State": state,
-        "Country": "USA",
+        "Country": country,
         "AQI (US)": aqi,
         "AQI Category": aqi_category(aqi),
         "Main Pollutant (US)": dominent,
@@ -222,49 +221,48 @@ def to_record(city_label, state, payload):
         "Station Time (local)": t_local if t_local is not None else "NA",
         "Station Time TZ": t_tz if t_tz is not None else "NA",
         "Station Time (v)": t_v if t_v is not None else "NA",
-        "Station Time ISO": t_iso if t_iso is not None else "NA",  # <-- new
+        "Station Time ISO": t_iso if t_iso is not None else "NA",
 
-        # ingest stamp
         "Ingested At UTC": datetime.now(timezone.utc).isoformat(),
 
         "Source": "aqicn",
         "status": "ok",
     }
 
-    # include all iaqi_* (dew, pm25, pm10, o3, no2, so2, co, t, h, w, p, etc.)
     rec.update({k: (v if v is not None else "NA") for k, v in iaqi_flat.items()})
-
-    # include forecast arrays (store as lists of dicts)
     rec.update(forecast_daily)
 
-    # normalize remaining None -> 'NA'
     for k, v in list(rec.items()):
         if v is None:
             rec[k] = "NA"
-
     return rec
 
 def fetch_city(city_info):
     city = city_info["city"]
     state = city_info.get("state", "")
-    # Prefer “City, State, USA” for US; for non-US you can pass “City, Country”
-    query_primary = f"{city}, {state}, USA" if state else city
+    provided_country = city_info.get("country")
+
+    # Build a disambiguated query: "City, State, Country" when possible
+    parts = [city, state, provided_country]
+    query_primary = ", ".join([p for p in parts if p])
+
+    # Try main query
     try:
         payload = fetch_feed(query_primary)
         if payload.get("status") == "ok":
-            return to_record(city, state, payload)
+            return to_record(city, state, payload, provided_country)
     except requests.RequestException as e:
         print(f"[warn] {query_primary}: {e}")
 
-    # Fallback: just the city (works for things like 'bangalore')
+    # Fallback: just the city
     try:
         payload = fetch_feed(city)
-        return to_record(city, state, payload)
+        return to_record(city, state, payload, provided_country)
     except requests.RequestException as e:
         print(f"[error] {city}, {state}: {e}")
         date_str, time_str = now_est_date_time()
         return {
-            "City": city, "State": state, "Country": "USA",
+            "City": city, "State": state, "Country": provided_country or ("USA" if state in US_STATES else "Unknown"),
             "AQI (US)": "NA", "AQI Category": "Unknown",
             "Main Pollutant (US)": "Error",
             "AQI (CN)": "NA", "Main Pollutant (CN)": "NA",
@@ -272,7 +270,7 @@ def fetch_city(city_info):
             "Source": "aqicn", "status": "error",
         }
 
-def process_cities_in_batches(cities, batch_size=4, delay_seconds=1):
+def process_cities_in_batches(cities, batch_size=3, delay_seconds=12):
     out = []
     for i in range(0, len(cities), batch_size):
         batch = cities[i:i+batch_size]
@@ -280,7 +278,7 @@ def process_cities_in_batches(cities, batch_size=4, delay_seconds=1):
             out.append(fetch_city(c))
         if i + batch_size < len(cities):
             print(f"Processed batch {i//batch_size + 1}/{(len(cities)+batch_size-1)//batch_size}; sleeping {delay_seconds}s")
-            sleep(delay_seconds)
+            sleep(delay_seconds)  # be kind to free-tier rate limits
     return out
 
 def save_to_mongodb(records):
@@ -294,6 +292,6 @@ def save_to_mongodb(records):
         client.close()
 
 if __name__ == "__main__":
-    records = process_cities_in_batches(CITIES, batch_size=4, delay_seconds=60)
+    records = process_cities_in_batches(CITIES, batch_size=3, delay_seconds=12)
     save_to_mongodb(records)
-    print(pd.DataFrame(records)[:3])
+    print(pd.DataFrame(records).head(3))
