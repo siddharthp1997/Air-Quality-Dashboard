@@ -24,7 +24,7 @@ The project can be automated via GitHub Actions to continuously update readings 
 🧩 Prerequisites
 	•	Python 3.11 or higher
 	•	MongoDB Atlas account (for data storage)
-	•	AQICN API token (from aqicn.org/data-platform/token/￼)
+	•	AQICN API token (from aqicn.org/data-platform/token/)
 	•	GitHub repository (for hosting and automation)
 
 ⸻
@@ -139,14 +139,6 @@ This ensures the job runs securely without hardcoding credentials in your repo.
 This repo includes workflow YAMLs for automation:
 	•	Data Fetch Workflow: Runs fetch.py every 6 hours to update MongoDB.
 	•	Streamlit Deployment Workflow: Keeps your hosted dashboard in sync.
-
-⸻
-
-🌐 Live Demo
-
-Explore the live dashboard here:
-
-👉 Air Quality Dashboard (Streamlit)￼
 
 ⸻
 
