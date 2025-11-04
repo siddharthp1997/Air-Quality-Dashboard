@@ -305,32 +305,43 @@ with tab_maps:
     plot_map(map_df, metric=metric_choice, title=f"{metric_choice} Map ({scope})", key=map_key)
 
 # -----------------------------
-# Forecasts Tab (Filtered)
+# Forecasts Tab (Filtered) — with City selector
 # -----------------------------
 with tab_forecast:
-    st.subheader("📈 Forecasts (if available) — Using Latest Filtered Record")
-    if not latest_filt.empty:
-        rec = latest_filt.iloc[0].to_dict()
-        forecast_fields = [
-            ("Forecast PM25 Daily", "PM2.5 (µg/m³)"),
-            ("Forecast PM10 Daily", "PM10 (µg/m³)"),
-            ("Forecast UVI Daily", "UV Index"),
-        ]
-        any_found = False
-        for field, y_label in forecast_fields:
-            fdf = forecast_to_df(rec, field)
-            if fdf is not None and not fdf.empty:
-                any_found = True
-                fig_f = px.line(
-                    fdf, x="day", y="value", color="stat", markers=True,
-                    title=f"{field.replace('Forecast ', '').replace(' Daily', '')} — {rec.get('City','')}"
-                )
-                fig_f.update_layout(xaxis_title="Day", yaxis_title=y_label, legend_title="stat")
-                st.plotly_chart(fig_f, use_container_width=True, key=f"forecast_chart_{field}")
-        if not any_found:
-            st.info("No forecast arrays found in the latest filtered record.")
+    st.subheader("📈 Forecasts (if available)")
+
+    if latest_filt.empty:
+        st.info("No recent filtered records to show forecast.")
     else:
-        st.info("No recent filtered record to show forecast.")
+        # Build city list from the latest filtered snapshot
+        forecast_cities = sorted(latest_filt["City"].dropna().unique().tolist())
+        city_fc = st.selectbox("Select a city for forecast", forecast_cities, key="forecast_city_select")
+
+        rec_row = latest_filt[latest_filt["City"] == city_fc]
+        if rec_row.empty:
+            st.info(f"No forecast-capable record found for {city_fc}.")
+        else:
+            rec = rec_row.iloc[0].to_dict()
+
+            forecast_fields = [
+                ("Forecast PM25 Daily", "PM2.5 (µg/m³)"),
+                ("Forecast PM10 Daily", "PM10 (µg/m³)"),
+                ("Forecast UVI Daily", "UV Index"),
+            ]
+
+            any_found = False
+            for field, y_label in forecast_fields:
+                fdf = forecast_to_df(rec, field)
+                if fdf is not None and not fdf.empty:
+                    any_found = True
+                    fig_f = px.line(
+                        fdf, x="day", y="value", color="stat", markers=True,
+                        title=f"{field.replace('Forecast ', '').replace(' Daily', '')} — {city_fc}"
+                    )
+                    fig_f.update_layout(xaxis_title="Day", yaxis_title=y_label, legend_title="stat")
+                    st.plotly_chart(fig_f, use_container_width=True, key=f"forecast_chart_{city_fc}_{field}")
+            if not any_found:
+                st.info(f"No forecast arrays found for {city_fc}.")
 
 # -----------------------------
 # Station Metadata Tab (Filtered)
