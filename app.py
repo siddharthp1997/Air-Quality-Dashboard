@@ -1,4 +1,4 @@
-# app.py — Full Streamlit Air Quality Dashboard (AQICN + Maps + Charts)
+# app.py — Full Streamlit Air Quality Dashboard (AQICN + Maps + Charts) with unique keys
 import os
 import streamlit as st
 from pymongo import MongoClient
@@ -61,7 +61,6 @@ def latest_per_city(df: pd.DataFrame) -> pd.DataFrame:
     latest = df.sort_values(["City", "DateTime"]).groupby("City", as_index=False).tail(1)
     if "AQI (US)" in latest.columns:
         latest["AQI (US)"] = pd.to_numeric(latest["AQI (US)"], errors="coerce")
-    # make numeric common IAQI fields too
     for c in latest.columns:
         if c.startswith("iaqi_"):
             latest[c] = pd.to_numeric(latest[c], errors="coerce")
@@ -106,7 +105,6 @@ def ui_infer_country_row(row) -> str:
     return c or "Unknown"
 
 def build_map_df(latest: pd.DataFrame, metric: str | None = "AQI (US)") -> pd.DataFrame:
-    """Prepare df for map: coerce lat/lon and chosen metric to numeric; drop missing."""
     if latest.empty:
         return latest
     mdf = latest.copy()
@@ -119,7 +117,7 @@ def build_map_df(latest: pd.DataFrame, metric: str | None = "AQI (US)") -> pd.Da
         subset = ["lat", "lon"]
     return mdf.dropna(subset=subset)
 
-def plot_map(df_map: pd.DataFrame, metric: str, title: str, zoom: int | None = None):
+def plot_map(df_map: pd.DataFrame, metric: str, title: str, key: str, zoom: int | None = None):
     if df_map.empty:
         st.info("No geocoded data available to display on the map.")
         return
@@ -144,11 +142,12 @@ def plot_map(df_map: pd.DataFrame, metric: str, title: str, zoom: int | None = N
         },
         zoom=zoom,
         height=520,
+        title=title,
     )
     fig.update_layout(mapbox_style="open-street-map", margin=dict(l=0, r=0, t=0, b=0))
     if metric in df_map.columns:
         fig.update_layout(coloraxis_colorbar=dict(title=metric))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=key)
 
 # -----------------------------
 # Load data
@@ -176,19 +175,19 @@ with st.sidebar:
 
     countries = sorted(df["Country"].dropna().unique().tolist()) if "Country" in df.columns else []
     default_countries = countries[: min(2, len(countries))] if countries else []
-    selected_countries = st.multiselect("Country", countries, default=default_countries)
+    selected_countries = st.multiselect("Country", countries, default=default_countries, key="filter_countries")
 
     df_for_cities = df[df["Country"].isin(selected_countries)] if selected_countries else df
     all_cities = sorted(df_for_cities["City"].dropna().unique().tolist()) if "City" in df_for_cities.columns else []
-    selected_cities = st.multiselect("City", all_cities, default=all_cities[: min(10, len(all_cities))])
+    selected_cities = st.multiselect("City", all_cities, default=all_cities[: min(10, len(all_cities))], key="filter_cities")
 
     if "AQI Category" in df.columns:
         aqi_cats = sorted(df["AQI Category"].dropna().unique().tolist())
-        selected_cats = st.multiselect("AQI Category", aqi_cats, default=[])
+        selected_cats = st.multiselect("AQI Category", aqi_cats, default=[], key="filter_aqi_cats")
     else:
         selected_cats = []
 
-    date_range = st.date_input("Date range", [])
+    date_range = st.date_input("Date range", [], key="filter_date_range")
 
 def apply_filters(df_in: pd.DataFrame) -> pd.DataFrame:
     out = df_in.copy()
@@ -225,8 +224,10 @@ with tab_overview:
     if latest_filt.empty:
         st.info("No records to show.")
     else:
-        st.dataframe(latest_filt[cols_show] if cols_show else latest_filt.drop(columns=["_id"], errors="ignore"),
-                     use_container_width=True)
+        st.dataframe(
+            latest_filt[cols_show] if cols_show else latest_filt.drop(columns=["_id"], errors="ignore"),
+            use_container_width=True
+        )
 
     st.subheader("🌫 AQI (US) — Top 10 Cities by Latest Reading (Filtered)")
     if not df_f.empty and {"City","DateTime","AQI (US)"}.issubset(df_f.columns):
@@ -246,7 +247,7 @@ with tab_overview:
                     markers=True, title="AQI (US) Variation — Top 10 Cities"
                 )
                 fig_top.update_layout(xaxis_title="Date/Time", yaxis_title="AQI (US)")
-                st.plotly_chart(fig_top, use_container_width=True)
+                st.plotly_chart(fig_top, use_container_width=True, key="top10_chart")
     else:
         st.info("Insufficient data to plot Top 10 AQI chart.")
 
@@ -256,7 +257,7 @@ with tab_overview:
 with tab_city:
     st.subheader("🏙 City Explorer (Filtered)")
     if "City" in df_f.columns and len(df_f["City"].dropna().unique()) > 0:
-        city_pick = st.selectbox("Select a City", sorted(df_f["City"].dropna().unique().tolist()))
+        city_pick = st.selectbox("Select a City", sorted(df_f["City"].dropna().unique().tolist()), key="city_pick")
         cdf = df_f[df_f["City"] == city_pick].copy()
     else:
         cdf = pd.DataFrame()
@@ -264,7 +265,8 @@ with tab_city:
     if not cdf.empty:
         metrics = numeric_columns(cdf)
         if metrics:
-            metric = st.selectbox("Select Metric", metrics, index=(metrics.index("AQI (US)") if "AQI (US)" in metrics else 0))
+            metric_idx = metrics.index("AQI (US)") if "AQI (US)" in metrics else 0
+            metric = st.selectbox("Select Metric", metrics, index=metric_idx, key="city_metric_select")
             cdf[metric] = pd.to_numeric(cdf[metric], errors="coerce")
             plot_df = cdf.dropna(subset=["DateTime", metric])
             if plot_df.empty:
@@ -272,7 +274,7 @@ with tab_city:
             else:
                 fig = px.line(plot_df, x="DateTime", y=metric, title=f"{metric} in {city_pick}", markers=True)
                 fig.update_layout(xaxis_title="Date/Time", yaxis_title=metric)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key=f"city_metric_chart_{metric}")
         else:
             st.info("No numeric IAQI/AQI fields to plot for this city.")
     else:
@@ -285,7 +287,7 @@ with tab_maps:
     st.subheader("🗺️ Global AQI Map — Latest Reading per City (All Cities, Unfiltered)")
     # Always show ALL cities' latest AQI (ignores filters)
     map_global = build_map_df(latest_all, metric="AQI (US)")
-    plot_map(map_global, metric="AQI (US)", title="Global AQI Map")
+    plot_map(map_global, metric="AQI (US)", title="Global AQI Map", key="global_aqi_map")
 
     st.subheader("🗺️ Metric Map — Choose Any Metric (All vs Filtered)")
     # Metric selection
@@ -298,7 +300,9 @@ with tab_maps:
         map_df = build_map_df(latest_all, metric=metric_choice)
     else:
         map_df = build_map_df(latest_filt, metric=metric_choice)
-    plot_map(map_df, metric=metric_choice, title=f"{metric_choice} Map ({scope})")
+
+    map_key = f"metric_map_{scope.replace(' ', '_')}_{metric_choice}"
+    plot_map(map_df, metric=metric_choice, title=f"{metric_choice} Map ({scope})", key=map_key)
 
 # -----------------------------
 # Forecasts Tab (Filtered)
@@ -322,7 +326,7 @@ with tab_forecast:
                     title=f"{field.replace('Forecast ', '').replace(' Daily', '')} — {rec.get('City','')}"
                 )
                 fig_f.update_layout(xaxis_title="Day", yaxis_title=y_label, legend_title="stat")
-                st.plotly_chart(fig_f, use_container_width=True)
+                st.plotly_chart(fig_f, use_container_width=True, key=f"forecast_chart_{field}")
         if not any_found:
             st.info("No forecast arrays found in the latest filtered record.")
     else:
