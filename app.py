@@ -1,4 +1,4 @@
-# app.py — Streamlit dashboard for AQICN-backed Mongo data (with AQI Map)
+# app.py — Streamlit dashboard for AQICN-backed Mongo data (with global AQI Map)
 import os
 import streamlit as st
 from pymongo import MongoClient
@@ -174,9 +174,9 @@ else:
     )
 
 # -----------------------------
-# 🗺️ AQI Map (Latest by City)
+# 🗺️ AQI Map — Latest Reading per City (All Cities, Unfiltered)
 # -----------------------------
-st.subheader("🗺️ AQI Map — Latest Reading per City")
+st.subheader("🗺️ AQI Map — Latest Reading per City (All Cities)")
 
 def build_map_df(latest: pd.DataFrame) -> pd.DataFrame:
     if latest.empty:
@@ -193,29 +193,34 @@ def build_map_df(latest: pd.DataFrame) -> pd.DataFrame:
         mdf["AQI (US)"] = pd.to_numeric(mdf["AQI (US)"], errors="coerce")
     return mdf.dropna(subset=["lat", "lon", "AQI (US)"])
 
-map_df = build_map_df(latest_df)
+# IMPORTANT: use the full df (unfiltered) for the map
+latest_all_cities = latest_per_city(df)
+map_df = build_map_df(latest_all_cities)
+
 if map_df.empty:
     st.info("No geocoded AQI data available to display on the map.")
 else:
+    # Choose a sensible initial zoom: world for multi-country
+    zoom = 2 if map_df["Country"].nunique() > 1 else 3
     fig_map = px.scatter_mapbox(
         map_df,
         lat="lat",
         lon="lon",
         color="AQI (US)",
         size="AQI (US)",
-        size_max=30,
+        size_max=28,
         color_continuous_scale="Turbo",
         hover_name="City",
         hover_data={
             "Country": True,
             "AQI (US)": True,
-            "AQI Category": True if "AQI Category" in map_df.columns else False,
-            "Main Pollutant (US)": True if "Main Pollutant (US)" in map_df.columns else False,
-            "Station Time (local)": True if "Station Time (local)" in map_df.columns else False,
+            "AQI Category": "AQI Category" in map_df.columns,
+            "Main Pollutant (US)": "Main Pollutant (US)" in map_df.columns,
+            "Station Time (local)": "Station Time (local)" in map_df.columns,
             "lat": False,
             "lon": False,
         },
-        zoom=3,
+        zoom=zoom,
         height=520,
     )
     fig_map.update_layout(
@@ -226,7 +231,7 @@ else:
     st.plotly_chart(fig_map, use_container_width=True)
 
 # -----------------------------
-# Top 10 AQI (All Cities) Chart
+# Top 10 AQI (All Cities) Chart (respects filters)
 # -----------------------------
 st.subheader("🌫 AQI (US) — Top 10 Cities by Latest Reading")
 if not df_f.empty and {"City", "DateTime", "AQI (US)"}.issubset(df_f.columns):
@@ -251,7 +256,7 @@ else:
     st.info("Insufficient data to plot Top 10 AQI chart.")
 
 # -----------------------------
-# City-level Explorer
+# City-level Explorer (respects filters)
 # -----------------------------
 st.subheader("🏙 City Explorer")
 if "City" in df_f.columns and len(df_f["City"].dropna().unique()) > 0:
@@ -278,7 +283,7 @@ else:
     st.info("Select a city to explore its metrics.")
 
 # -----------------------------
-# Forecasts (optional, if stored)
+# Forecasts (optional, if stored; respects filters via latest_df)
 # -----------------------------
 with st.expander("📈 Forecasts (if available)"):
     if not latest_df.empty:
@@ -305,7 +310,7 @@ with st.expander("📈 Forecasts (if available)"):
         st.info("No recent record available to show forecast.")
 
 # -----------------------------
-# Station metadata
+# Station metadata (respects filters via latest_df)
 # -----------------------------
 with st.expander("📍 Station Metadata"):
     meta_cols = [c for c in [
