@@ -6,15 +6,15 @@ The project can be automated via GitHub Actions to continuously update readings 
 
 
 ## ✨ Features
-- Global Coverage: Fetches live air quality data from AQICN for top US and Indian cities.
-- MongoDB Integration: Stores and updates city-level AQI data in MongoDB Atlas.
-- Interactive Streamlit Dashboard:
-- Real-time AQI visualization by city and pollutant.
-- Dynamic maps for AQI and other IAQI metrics.
-- Forecast charts for PM2.5, PM10, and UVI.
-- Country → City dependent filters.
-- Automated Data Collection: GitHub Actions or cron-based automation every few hours.
-- Secure Configuration: Environment variables handle API tokens and database credentials.
+- **Global Coverage:** Fetches live air quality data from AQICN for top US and Indian cities.
+- **MongoDB Integration:** Stores and updates city-level AQI data in MongoDB Atlas.
+- **Interactive Streamlit Dashboard:**
+	- Real-time AQI visualization by city and pollutant.
+	- Dynamic maps for AQI and other IAQI metrics.
+	- Forecast charts for PM2.5, PM10, and UVI.
+	- Country → City dependent filters.
+- **Automated Data Collection:** GitHub Actions or cron-based automation every few hours.
+- **Secure Configuration:** Environment variables handle API tokens and database credentials.
 
 
 ## 🌐 Live Demo
