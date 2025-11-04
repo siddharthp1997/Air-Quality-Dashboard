@@ -3,7 +3,7 @@ name: Fetch Air Quality Data
 on:
   workflow_dispatch:        # 👈 allows manual trigger from GitHub UI
   schedule:
-    - cron: '0 */6 * * *'   # runs every 6 hours
+    - cron: '0 */1 * * *'   # runs every 1 hours
 
 jobs:
   fetch-data:
