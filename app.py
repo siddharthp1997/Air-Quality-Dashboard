@@ -179,7 +179,7 @@ with st.sidebar:
 
     df_for_cities = df[df["Country"].isin(selected_countries)] if selected_countries else df
     all_cities = sorted(df_for_cities["City"].dropna().unique().tolist()) if "City" in df_for_cities.columns else []
-    selected_cities = st.multiselect("City", all_cities, default=all_cities[: min(10, len(all_cities))], key="filter_cities")
+    selected_cities = st.multiselect("City", all_cities, default=all_cities, key="filter_cities")
 
     if "AQI Category" in df.columns:
         aqi_cats = sorted(df["AQI Category"].dropna().unique().tolist())
