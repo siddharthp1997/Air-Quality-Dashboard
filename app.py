@@ -1,4 +1,4 @@
-# app.py — Streamlit dashboard for AQICN-backed Mongo data
+# app.py — Streamlit dashboard for AQICN-backed Mongo data (with AQI Map)
 import os
 import streamlit as st
 from pymongo import MongoClient
@@ -172,6 +172,58 @@ else:
         latest_df[cols_show] if cols_show else latest_df.drop(columns=["_id"], errors="ignore"),
         use_container_width=True
     )
+
+# -----------------------------
+# 🗺️ AQI Map (Latest by City)
+# -----------------------------
+st.subheader("🗺️ AQI Map — Latest Reading per City")
+
+def build_map_df(latest: pd.DataFrame) -> pd.DataFrame:
+    if latest.empty:
+        return latest
+    mdf = latest.copy()
+    # Coerce lat/lon and AQI to numeric
+    if "Station Geo Lat" in mdf.columns and "Station Geo Lon" in mdf.columns:
+        mdf["lat"] = pd.to_numeric(mdf["Station Geo Lat"], errors="coerce")
+        mdf["lon"] = pd.to_numeric(mdf["Station Geo Lon"], errors="coerce")
+    else:
+        mdf["lat"] = pd.NA
+        mdf["lon"] = pd.NA
+    if "AQI (US)" in mdf.columns:
+        mdf["AQI (US)"] = pd.to_numeric(mdf["AQI (US)"], errors="coerce")
+    return mdf.dropna(subset=["lat", "lon", "AQI (US)"])
+
+map_df = build_map_df(latest_df)
+if map_df.empty:
+    st.info("No geocoded AQI data available to display on the map.")
+else:
+    fig_map = px.scatter_mapbox(
+        map_df,
+        lat="lat",
+        lon="lon",
+        color="AQI (US)",
+        size="AQI (US)",
+        size_max=30,
+        color_continuous_scale="Turbo",
+        hover_name="City",
+        hover_data={
+            "Country": True,
+            "AQI (US)": True,
+            "AQI Category": True if "AQI Category" in map_df.columns else False,
+            "Main Pollutant (US)": True if "Main Pollutant (US)" in map_df.columns else False,
+            "Station Time (local)": True if "Station Time (local)" in map_df.columns else False,
+            "lat": False,
+            "lon": False,
+        },
+        zoom=3,
+        height=520,
+    )
+    fig_map.update_layout(
+        mapbox_style="open-street-map",
+        margin=dict(l=0, r=0, t=0, b=0),
+        coloraxis_colorbar=dict(title="AQI (US)")
+    )
+    st.plotly_chart(fig_map, use_container_width=True)
 
 # -----------------------------
 # Top 10 AQI (All Cities) Chart
